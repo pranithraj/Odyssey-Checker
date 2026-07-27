@@ -1,0 +1,42 @@
+name: Check Odyssey IMAX 70MM tickets
+
+on:
+  schedule:
+    # Every 30 minutes. Cron is UTC. Adjust frequency as you like —
+    # every 15 min is fine too, this site isn't rate-limit-sensitive
+    # at this volume, just don't go below a few minutes.
+    - cron: "*/30 * * * *"
+  workflow_dispatch: {}   # lets you trigger a manual run from the Actions tab
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install playwright
+          playwright install --with-deps chromium
+
+      - name: Restore state
+        uses: actions/cache@v4
+        with:
+          path: odyssey-ticket-agent/state.json
+          key: ticket-state-${{ github.run_id }}
+          restore-keys: ticket-state-
+
+      - name: Run checker
+        working-directory: odyssey-ticket-agent
+        run: python checker.py
+
+      - name: Save state
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: odyssey-ticket-agent/state.json
+          key: ticket-state-${{ github.run_id }}
