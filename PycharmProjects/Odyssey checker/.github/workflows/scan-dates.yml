@@ -1,0 +1,43 @@
+name: Scan Odyssey IMAX 70MM available dates
+
+on:
+  schedule:
+    # Every hour, 10am-10pm US Eastern (14:00-22:00 UTC during EDT, which
+    # covers Aug 19-23). If this is still running after DST ends in
+    # November, Eastern becomes UTC-5 and these times shift an hour later
+    # locally (11am-11pm) — adjust by -1 to each UTC hour if that matters.
+    - cron: "0 14-22 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install playwright
+          playwright install --with-deps chromium
+
+      - name: Restore state
+        uses: actions/cache@v4
+        with:
+          path: odyssey-ticket-agent/scanner_state.json
+          key: scanner-state-${{ github.run_id }}
+          restore-keys: scanner-state-
+
+      - name: Run scanner
+        working-directory: odyssey-ticket-agent
+        run: python date_scanner.py --start 2026-08-19 --end 2026-08-23
+
+      - name: Save state
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: odyssey-ticket-agent/scanner_state.json
+          key: scanner-state-${{ github.run_id }}
